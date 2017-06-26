@@ -4,7 +4,7 @@
   <meta charset="utf-8">
   <meta http-equiv="X-UA-Compatible" content="IE=edge">
   <title>Basic VR Model Viewer</title>
-  <style>body,html{height: 100%;width:100%;margin:0;padding:0;overflow:hidden;}</style>
+  <style>body,html{height: 100%;width:100%;margin:0;padding:0;overflow:hidden;}#vrbutton {position: fixed;bottom: 0;right: 0;left: 0;margin: 1em 2em0;border: 2px solid currentColor;outline: none;font-size: 2vw;padding: .5em 1em;background: transparent; color: #fff;</style>
 </head>
 <body>
   <script src="js/three.min.js"></script>
@@ -17,11 +17,58 @@
     var clock = new THREE.Clock();
 
       var container;
-      var camera, scene, controls, raycaster, renderer, room;
+      var camera, scene, controls, renderer, room;
+
+      var effect = null;
+      var vrbutton;
 
 
       function onMobileDevice() {
         return /Android/i.test(navigator.userAgent) || /iPhone|iPad|iPod/i.test(navigator.userAgent);
+      }
+
+      function enterVR() {
+        if (onMobileDevice()) {
+          effect = new THREE.StereoEffect(renderer);
+          effect.setSize(window.innerWidth, window.innerHeight);
+          effect.separation = 2.5 * 0.0254 / 2;
+        }
+        vrbutton.style.display = 'none';
+      }
+      function exitVR() {
+        effect = null;
+        vrbutton.style.display = 'block';
+      }
+      function onVRButtonPress() {
+        var canvas = document.querySelector('canvas');
+        if ('mozRequestFullScreen' in canvas) {
+          canvas.mozRequestFullScreen();
+        } else if ('webkitRequestFullScreen' in canvas) {
+          canvas.webkitRequestFullScreen();
+        } else {
+          canvas.requestFullScreen();
+        }
+        enterVR();
+      }
+      setupVRMode = function () {
+        vrbutton = document.createElement('button');
+        vrbutton.id = 'vrbutton';
+        document.body.appendChild(vrbutton);
+        vrbutton.innerText = `Enter ${onMobileDevice()?'VR Mode':'Fullscreen'}`;
+        vrbutton.addEventListener('click', onVRButtonPress, false);
+
+        var fschangeEvents = ['webkitfullscreenchange', 'mozfullscreenchange', 'fullscreenchange'];
+        var fsactiveEvents = ['webkitIsFullScreen', 'mozFullScreen', 'fullscreen'];
+
+        fschangeEvents.forEach(function (event, i) {
+          if (`on${event}` in document) {
+            document.addEventListener(event, function (e) {
+              if (!document[fsactiveEvents[i]]) {
+                utils.exitVR();
+              }
+            });
+          }
+        });
       };
 
       function init() {
@@ -91,18 +138,27 @@
         document.body.appendChild( renderer.domElement );
 
         window.addEventListener( 'resize', onWindowResize, false );
+        setupVRMode();
       }
       function onWindowResize() {
-        camera.aspect = window.innerWidth / window.innerHeight;
+        var wiw = window.innerWidth;
+        var wih = window.innerHeight;
+        camera.aspect = wiw / wih;
         camera.updateProjectionMatrix();
-        renderer.setSize( window.innerWidth, window.innerHeight );
+        renderer.setSize( wiw, wih );
+
+        if (effect !== null) {
+          effect.setSize(wiw, wih);
+        }
       }
       function animate() {
         // Stuff to do every frame here
 
-
         controls.update();
         renderer.render( scene, camera );
+        if (effect !== null) {
+          effect.render(scene, camera);
+        }
         requestAnimationFrame(animate);
       }
 
